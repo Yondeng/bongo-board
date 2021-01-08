@@ -4,6 +4,7 @@ from gym import spaces, logger
 from gym.utils import seeding
 import numpy as np
 from gym.envs.classic_control import rendering
+import random
 
 class bongo_board(gym.Env):
     metadata = {
