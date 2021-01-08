@@ -6,7 +6,8 @@ Created on Wed Jan  6 21:30:42 2021
 """
 
 import gym
-env = gym.make('CartPole-v0')
+import bongo-board
+env = gym.make('bongo-board-v0')
 for i_episode in range(20):
     observation = env.reset()
     for t in range(100):
