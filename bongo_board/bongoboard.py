@@ -46,15 +46,15 @@ class bongo_board(gym.Env):
         elif action == 2:
             self.alpha += self.alpha_step
         elif action == 3:
-            self.alpha -= self.alpha_step
+            self.alpha += self.alpha_step
         if self.theta > self.max_theta:
             self.theta = self.max_theta
         elif self.theta < self.min_theta:
             self.theta = self.min_theta
-        # if self.alpha >=  self.theta:
-        #     self.alpha = self.theta
-        # elif self.alpha <=  - self.theta:
-        #     self.alpha = -self.theta
+        if self.alpha >=  math.pi/2:
+            self.alpha = math.pi/2
+        elif self.alpha <=  -math.pi/2:
+            self.alpha = -math.pi/2
         self.y, self.x = (self.base_ball_radian/2)*math.cos(self.theta),\
             (self.base_ball_radian/2)*math.sin(self.theta)
         # print(self.alpha, self.theta)
@@ -108,7 +108,7 @@ class bongo_board(gym.Env):
         self.remapping.set_translation(self.center_x + self.x, self.center_y + self.y)
         self.remapping.set_rotation(-self.theta)
         self.pendulum_map.set_translation(self.center_x + self.x, self.center_y + self.y)
-        self.pendulum_map.set_rotation(self.alpha)
+        self.pendulum_map.set_rotation(0)
 
         
         
