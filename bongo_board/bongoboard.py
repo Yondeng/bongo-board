@@ -12,6 +12,8 @@ class bongo_board(gym.Env):
     }
 
     def __init__(self):
+        self.screen_width = 600
+        self.screen_height = 400
         self.theta_step = 0.1
         self.alpha_step = 0.1
         self.base_ball_radian = 25
@@ -24,8 +26,9 @@ class bongo_board(gym.Env):
         self.kinematics_integrator = 'euler'
         self.action_space = spaces.Discrete(4)
         self.thetalimit()
+        self.center_x, self.center_y = 
         # Angle at which to fail the episode
-        self.theta, self.alpha = 0., 0.
+        self.theta, self.alpha = 0.0001, 0.
         self.viewer = None
         self.seed()
     def seed(self,seed=None):
@@ -60,11 +63,11 @@ class bongo_board(gym.Env):
         self.min_theta = -self.max_theta
         
     def render(self, mode='human'):
-        screen_width = 600
-        screen_height = 400
-        self.fix_point = rendering.Transform(translation=(self.x, self.y))
-        self.pole_translation = rendering.Transform(rotation=math.pi/2 ,translation=(self.x, self.y))
+        
+        
         if self.viewer is None:
+            self.fix_point = rendering.Transform(translation=(self.x, self.y))
+            self.pole_translation = rendering.Transform(translation=(0,0))
             self.viewer = rendering.Viewer(screen_width, screen_height)
             self.orignal_point = rendering.Transform(translation=(0, 0))
             self.remapping = rendering.Transform()
@@ -96,17 +99,20 @@ class bongo_board(gym.Env):
             self.pendulum_pole.set_color(.8, .3, .3)
             self.pendulum_pole.add_attr(self.pole_translation)
             self.pendulum_pole.add_attr(self.pendulum_map)
-            self.pendulum_pole.add_attr(self.remapping)
+            # self.pendulum_pole.add_attr(self.remapping)
             
             self.viewer.add_geom(self.pendulum_pole)
         if self.state is None:
             return None
         # Edit the pole polygon vertex
-        # self.pole_translation.set_rotation()
+        
+        
+        # self.pole_translation.set_rotation(math.pi/2)
+        self.pendulum_map.set_translation(300 + self.x , 150 + self.y)
+        self.pendulum_map.set_rotation(self.alpha )
         self.remapping.set_translation(300, 150)
         self.remapping.set_rotation(self.theta)
-        self.pendulum_map.set_translation(self.x  , self.y  )
-        self.pendulum_map.set_rotation(self.alpha )
+        
         
         return self.viewer.render(return_rgb_array=mode == 'rgb_array')
     
