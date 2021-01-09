@@ -59,8 +59,6 @@ class bongo_board(gym.Env):
         self.min_theta = -self.max_theta
         
     def render(self, mode='human'):
-        
-        
         if self.viewer is None:
             self.viewer = rendering.Viewer(self.screen_width, self.screen_height)
             self.fix_point = rendering.Transform(translation=(self.x, self.y))
