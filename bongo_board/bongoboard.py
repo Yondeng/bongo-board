@@ -70,7 +70,7 @@ class bongo_board(gym.Env):
             self.node.set_color(.5, .5, .8)
             self.node.add_attr(self.fix_point)
             self.mass_ball = rendering.make_circle(self.base_ball_radian/2)
-            self.mass_ball.set_color(0.3,0.3,0.)
+            self.mass_ball.set_color(0.3,0.5,0.8)
             self.mass_ball.add_attr(rendering.Transform(translation=(self.pendulum_pole_lenth,0)))
             self.mass_ball.add_attr(self.pendulum_map)
             
@@ -103,7 +103,7 @@ class bongo_board(gym.Env):
         
         self.fix_point.set_translation(self.center_x + self.x, self.center_y + self.y)
         self.remapping.set_translation(self.center_x + self.x, self.center_y + self.y)
-        self.remapping.set_rotation(math.pi/2 - self.alpha)
+        self.remapping.set_rotation(-self.theta)
         self.pendulum_map.set_translation(self.center_x + self.x, self.center_y + self.y)
         self.pendulum_map.set_rotation(self.alpha)
         # pi/2 + theta = alpha
