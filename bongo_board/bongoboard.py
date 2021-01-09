@@ -17,10 +17,10 @@ class bongo_board(gym.Env):
         self.theta_step, self.alpha_step = 0.1, 0.1
         self.base_ball_radian, self.board_lenth, self.board_width = 25, 125, 4
         self.node_radian = 4
-        self.pendulum_pole_lenth, self.pendulum_pole_width = 110, 4
+        self.pendulum_pole_lenth, self.pendulum_pole_width, self.pendulum_mass = 110, 4, 1
         self.tau = 0.02  # seconds between state updates
         self.kinematics_integrator = 'euler'
-        self.action_space = spaces.Discrete(4)
+        self.action_space = spaces.Discrete(2)
         self.thetalimit()
         self.center_x, self.center_y = 300, 150
         # Angle at which to fail the episode
@@ -34,18 +34,18 @@ class bongo_board(gym.Env):
         err_msg = "%r (%s) invalid" % (action, type(action))
         assert self.action_space.contains(action), err_msg
         if action == 0:
-            self.theta += self.theta_step
+            self.alpha += self.alpha_step
             
         elif action == 1:
-            self.theta -= self.theta_step
-        elif action == 2:
-            self.alpha += self.alpha_step
-        elif action == 3:
             self.alpha -= self.alpha_step
+            
+        self.theta = (self.alpha - math.pi/2)
         if self.theta > self.max_theta:
             self.theta = self.max_theta
+            self.alpha = self.theta + math.pi/2
         elif self.theta < self.min_theta:
             self.theta = self.min_theta
+            self.alpha = self.theta + math.pi/2
         # if self.alpha <  -self.theta:
         #     self.alpha = self.theta
         # elif self.alpha >  math.pi - self.theta:
@@ -54,8 +54,8 @@ class bongo_board(gym.Env):
             (self.base_ball_radian/2)*math.sin(self.theta)
         
     def thetalimit(self):
-        _theta = math.atan(self.node_radian/(self.board_lenth/2))
-        self.max_theta = 2.5 * (math.pi - 2 * ((math.pi/2)-_theta))
+        _theta = math.atan((self.base_ball_radian/2)/(self.board_lenth/2))
+        self.max_theta = 1 * (math.pi - 2 * ((math.pi/2)-_theta))
         self.min_theta = -self.max_theta
         
     def render(self, mode='human'):
@@ -81,8 +81,8 @@ class bongo_board(gym.Env):
             self.board = rendering.FilledPolygon([(l, b), (l, t),
                                                  (r, t), (r, b)])
             self.board.add_attr(self.remapping)
-            self.planeline = rendering.Line((0,142-self.node_radian),\
-                                            (self.screen_width,142-self.node_radian))
+            self.planeline = rendering.Line((0,141-self.node_radian),\
+                                            (self.screen_width,141-self.node_radian))
             self.planeline.set_color(0., 0., 0.)
             self.base_ball = rendering.make_circle(self.base_ball_radian/2)
             self.base_ball.add_attr(rendering.Transform(translation = (self.center_x,self.center_y)))
@@ -105,14 +105,20 @@ class bongo_board(gym.Env):
         
         self.fix_point.set_translation(self.center_x + self.x, self.center_y + self.y)
         self.remapping.set_translation(self.center_x + self.x, self.center_y + self.y)
-        self.remapping.set_rotation(-self.theta)
+        self.remapping.set_rotation(math.pi/2 - self.alpha)
         self.pendulum_map.set_translation(self.center_x + self.x, self.center_y + self.y)
         self.pendulum_map.set_rotation(self.alpha)
+        # pi/2 + theta = alpha
+        # theta = alpha - pi/2
 
         
         
         return self.viewer.render(return_rgb_array=mode == 'rgb_array')
     
+    def close(self):
+        if self.viewer:
+            self.viewer.close()
+            self.viewer = None
     def reset(self):
         self.state = self.np_random.uniform(low=-0.05, high=0.05, size=(4,))
         self.steps_beyond_done = None
