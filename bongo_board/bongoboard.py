@@ -25,7 +25,14 @@ class bongo_board(gym.Env):
         self.center_x, self.center_y = 300, 150
         # Angle at which to fail the episode
         self.theta, self.alpha = 0., 0.
-        self.viewer = None
+        self.y, self.x = (self.base_ball_radian/2)*math.cos(self.theta),\
+            (self.base_ball_radian/2)*math.sin(self.theta)
+        high = np.array([self.max_theta],\
+                        dtype=np.float32)
+        self.observation_space = spaces.Box(-high, high,\
+                                             dtype=np.float32)
+        self.viewer, self.state = None, None
+        self.steps_beyond_done = None
         self.seed()
     def seed(self,seed=None):
         self.np_random, seed = seeding.np_random(seed)
@@ -33,26 +40,48 @@ class bongo_board(gym.Env):
     def step(self,action):
         err_msg = "%r (%s) invalid" % (action, type(action))
         assert self.action_space.contains(action), err_msg
+        # alpha_acc = self.alpha_step if action == 1 else -self.alpha_step
+        self.alpha = self.state
+        # self.alpha = self.alpha + self.alpha_dot * self.tau
+        # self.alpha_dot = self.alpha_dot + self.tau * alpha_acc
+        # tmp_theta = self.theta
+        # self.theta = (self.alpha - math.pi/2)
+        # self.theta_dot = (self.theta - tmp_theta) / self.tau
+        tmp_alpha = self.alpha
         if action == 0:
             self.alpha += self.alpha_step
             
         elif action == 1:
             self.alpha -= self.alpha_step
-            
-        self.theta = (self.alpha - math.pi/2)
-        if self.theta > self.max_theta:
-            self.theta = self.max_theta
-            self.alpha = self.theta + math.pi/2
-        elif self.theta < self.min_theta:
-            self.theta = self.min_theta
-            self.alpha = self.theta + math.pi/2
-        # if self.alpha <  -self.theta:
-        #     self.alpha = self.theta
-        # elif self.alpha >  math.pi - self.theta:
-        #     self.alpha = math.pi + self.theta
+        self.theta = self.alpha - math.pi/2
+        done = bool(self.alpha < self.min_theta + math.pi/2\
+                    or self.alpha > self.max_theta + math.pi/2)
+        if not done:
+            reward = 1.
+        elif self.steps_beyond_done is None:
+            self.steps_beyond_done = 0
+            reward = 1.
+        else:
+            if self.steps_beyond_done == 0:
+                logger.warn(
+                    "You are calling 'step()' even though this "
+                    "environment has already returned done = True. You "
+                    "should always call 'reset()' once you receive 'done = "
+                    "True' -- any further steps are undefined behavior."
+                )
+            self.steps_beyond_done += 1
+            reward = 0.
+        
+        
+        # if self.theta > self.max_theta:
+        #     self.theta = self.max_theta
+        #     self.alpha = self.theta + math.pi/2
+        # elif self.theta < self.min_theta:
+        #     self.theta = self.min_theta
+        #     self.alpha = self.theta + math.pi/2
         self.y, self.x = (self.base_ball_radian/2)*math.cos(self.theta),\
             (self.base_ball_radian/2)*math.sin(self.theta)
-        
+        return np.array(self.state), reward, done, {}
     def thetalimit(self):
         _theta = math.atan((self.base_ball_radian/2)/(self.board_lenth/2))
         self.max_theta = 1 * (math.pi - 2 * ((math.pi/2)-_theta))
@@ -61,6 +90,7 @@ class bongo_board(gym.Env):
     def render(self, mode='human'):
         if self.viewer is None:
             self.viewer = rendering.Viewer(self.screen_width, self.screen_height)
+            print(self.x, self.y)
             self.fix_point = rendering.Transform(translation=(self.x, self.y))
             self.pole_translation = rendering.Transform(translation=(0,0))
             self.orignal_point = rendering.Transform(translation=(0, 0))
@@ -118,7 +148,7 @@ class bongo_board(gym.Env):
             self.viewer.close()
             self.viewer = None
     def reset(self):
-        self.state = self.np_random.uniform(low=-0.05, high=0.05, size=(4,))
+        self.state = self.np_random.uniform(low=-0.05, high=0.05, size=(1,))
         self.steps_beyond_done = None
         return np.array(self.state)
 
