@@ -18,17 +18,33 @@ class bongo_board(gym.Env):
         self.base_ball_radian, self.board_lenth, self.board_width = 25, 125, 4
         self.node_radian = 4
         self.pendulum_pole_lenth, self.pendulum_pole_width, self.pendulum_mass = 110, 4, 1
+        self.gravity = 9.8
+        self.masscart = 0
+        self.masspole = 5
+        self.total_mass = (self.masspole + self.masscart)
+        self.length = 110  # actually half the pole's length
+        self.polemass_length = (self.masspole * self.length)
+        self.force_mag = 1.0
         self.tau = 0.02  # seconds between state updates
-        self.kinematics_integrator = 'euler'
-        self.action_space = spaces.Discrete(2)
         self.thetalimit()
+        # Angle at which to fail the episode
+        self.theta_threshold_radians = 3000
+        self.x_threshold = self.max_theta
+
+        # Angle limit set to 2 * theta_threshold_radians so failing observation
+        # is still within bounds.
+        high = np.array([self.x_threshold,
+                         np.finfo(np.float32).max,
+                         self.theta_threshold_radians * 2,
+                         np.finfo(np.float32).max],
+                        dtype=np.float32)
+        self.action_space = spaces.Discrete(2)
+        
         self.center_x, self.center_y = 300, 150
         # Angle at which to fail the episode
         self.theta, self.alpha = 0., 0.
         self.y, self.x = (self.base_ball_radian/2)*math.cos(self.theta),\
             (self.base_ball_radian/2)*math.sin(self.theta)
-        high = np.array([self.max_theta],\
-                        dtype=np.float32)
         self.observation_space = spaces.Box(-high, high,\
                                              dtype=np.float32)
         self.viewer, self.state = None, None
@@ -40,22 +56,32 @@ class bongo_board(gym.Env):
     def step(self,action):
         err_msg = "%r (%s) invalid" % (action, type(action))
         assert self.action_space.contains(action), err_msg
-        # alpha_acc = self.alpha_step if action == 1 else -self.alpha_step
-        self.alpha = self.state
-        # self.alpha = self.alpha + self.alpha_dot * self.tau
-        # self.alpha_dot = self.alpha_dot + self.tau * alpha_acc
-        # tmp_theta = self.theta
-        # self.theta = (self.alpha - math.pi/2)
-        # self.theta_dot = (self.theta - tmp_theta) / self.tau
-        tmp_alpha = self.alpha
-        if action == 0:
-            self.alpha += self.alpha_step
-            
-        elif action == 1:
-            self.alpha -= self.alpha_step
-        self.theta = self.alpha - math.pi/2
-        done = bool(self.alpha < self.min_theta + math.pi/2\
-                    or self.alpha > self.max_theta + math.pi/2)
+        x, x_dot, theta, theta_dot = self.state
+        force = 1 if action == 1 else -1
+        costheta = math.cos(theta)
+        sintheta = math.sin(theta)
+        temp = (force + self.polemass_length * theta_dot ** 2 * sintheta) / self.total_mass
+        thetaacc = (self.gravity * sintheta - costheta * temp) / (self.length * (4.0 / 3.0 - self.masspole * costheta ** 2 / self.total_mass))
+        xacc = temp - self.polemass_length * thetaacc * costheta / self.total_mass
+        x = x + self.tau * x_dot
+        x_dot = x_dot + self.tau * xacc
+        theta = theta + self.tau * theta_dot
+        theta_dot = theta_dot + self.tau * thetaacc
+        self.state = (x, x_dot, theta, theta_dot)
+        
+        self.theta = x
+        self.alpha = self.theta + math.pi/2
+        # self.alpha = theta + math.pi/2
+        done = False
+        if self.theta > self.max_theta:
+            self.theta = self.max_theta
+            self.alpha = self.theta + math.pi/2
+            done = True
+        elif self.theta < self.min_theta:
+            self.theta = self.min_theta
+            self.alpha = self.theta + math.pi/2
+            done = True
+
         if not done:
             reward = 1.
         elif self.steps_beyond_done is None:
@@ -71,14 +97,6 @@ class bongo_board(gym.Env):
                 )
             self.steps_beyond_done += 1
             reward = 0.
-        
-        
-        # if self.theta > self.max_theta:
-        #     self.theta = self.max_theta
-        #     self.alpha = self.theta + math.pi/2
-        # elif self.theta < self.min_theta:
-        #     self.theta = self.min_theta
-        #     self.alpha = self.theta + math.pi/2
         self.y, self.x = (self.base_ball_radian/2)*math.cos(self.theta),\
             (self.base_ball_radian/2)*math.sin(self.theta)
         return np.array(self.state), reward, done, {}
@@ -148,7 +166,7 @@ class bongo_board(gym.Env):
             self.viewer.close()
             self.viewer = None
     def reset(self):
-        self.state = self.np_random.uniform(low=-0.05, high=0.05, size=(1,))
+        self.state = self.np_random.uniform(low=-0.05, high=0.05, size=(4,))
         self.steps_beyond_done = None
         return np.array(self.state)
 
