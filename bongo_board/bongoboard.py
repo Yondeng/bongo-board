@@ -57,7 +57,7 @@ class bongo_board(gym.Env):
         err_msg = "%r (%s) invalid" % (action, type(action))
         assert self.action_space.contains(action), err_msg
         x, x_dot, theta, theta_dot = self.state
-        force = 1 if action == 1 else -1
+        force = 0.1 if action == 1 else -0.1
         costheta = math.cos(theta)
         sintheta = math.sin(theta)
         temp = (force + self.polemass_length * theta_dot ** 2 * sintheta) / self.total_mass
@@ -70,7 +70,7 @@ class bongo_board(gym.Env):
         self.state = (x, x_dot, theta, theta_dot)
         
         self.theta = x
-        self.alpha = self.theta + math.pi/2
+        self.alpha = x + math.pi/2
         # self.alpha = theta + math.pi/2
         done = False
         if self.theta > self.max_theta:
@@ -86,7 +86,7 @@ class bongo_board(gym.Env):
             reward = 1.
         elif self.steps_beyond_done is None:
             self.steps_beyond_done = 0
-            reward = 1.
+            reward = 1
         else:
             if self.steps_beyond_done == 0:
                 logger.warn(
@@ -96,7 +96,7 @@ class bongo_board(gym.Env):
                     "True' -- any further steps are undefined behavior."
                 )
             self.steps_beyond_done += 1
-            reward = 0.
+            reward = -10
         self.y, self.x = (self.base_ball_radian/2)*math.cos(self.theta),\
             (self.base_ball_radian/2)*math.sin(self.theta)
         return np.array(self.state), reward, done, {}

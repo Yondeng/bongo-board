@@ -1,4 +1,3 @@
-#60975010H
 import math
 import gym
 import time
