@@ -84,13 +84,11 @@ class bongo_board(gym.Env):
         self.state = (alpha, alpha_dot, theta, theta_dot)
         reward = 0
         
-        if theta < self.min_theta or theta > self.max_theta:
-            reward = -10
-        elif alpha > math.pi/4 or alpha < - math.pi/4:
-            reward = -10
+        r1 = (math.pi/2 - abs(alpha))
+        r2 = (self.max_theta - abs(theta))
+        if done:
+            reward = 0
         else:
-            r1 = 1 - abs(alpha)
-            r2 = 1 - abs(self.x)
             reward = r1 + r2
         # if not done:
         #     if abs(self.x) <= 1:

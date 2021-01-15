@@ -55,9 +55,11 @@ def main():
                 break
             t += 1
     env.close()
-def plot_Reward(self):
+def plot_Reward():
     plt.plot(rewardsArr)
     plt.show()
 if __name__ == "__main__":
-    main()
-    plot_Reward()
+    try:
+        main()
+    except KeyboardInterrupt:
+        plot_Reward()

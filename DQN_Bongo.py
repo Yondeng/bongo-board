@@ -31,7 +31,7 @@ def discount_rewards(rewards, gamma=0.99):
     r = r[::-1].cumsum()[::-1]
     return r - r.mean()
 
-def reinforce(env, policy_estimator, num_episodes=7000,
+def reinforce(env, policy_estimator, num_episodes=1000,
               batch_size=128, gamma=0.99):
     # Set up lists to hold results
     total_rewards = []
@@ -64,21 +64,18 @@ def reinforce(env, policy_estimator, num_episodes=7000,
             action = np.random.choice(action_space, 
                 p=action_probs)
             s_1, r, done, _ = env.step(action)
-            if done:
-                r = 0
-            else:
-                r = count * abs(math.sin(s_1[0]))
+            
+            
             # r =  count
             states.append(s_0)
             rewards.append(r)
             actions.append([action])
             s_0 = s_1
             count += 1
-            if ep > 1500:
-                env.render()
+            # if ep > 5000:
+            #     env.render()
             # If done, batch data
             if done:
-                r = r - 10
                 batch_rewards.extend(discount_rewards(
                     rewards, gamma))
                 batch_states.extend(states)
