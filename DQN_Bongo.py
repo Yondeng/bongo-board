@@ -1,77 +1,138 @@
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
 import numpy as np
+import matplotlib.pyplot as plt
 import gym
-import bongo_board 
+import sys
+import torch
+from torch import nn
+from torch import optim
+import bongo_board
 import math
+class policy_estimator():
+    def __init__(self, env):
+        self.n_inputs = env.observation_space.shape[0]
+        self.n_outputs = env.action_space.n
+        
+        # Define network
+        self.network = nn.Sequential(
+            nn.Linear(self.n_inputs, 30), 
+            nn.ReLU(), 
+            nn.Linear(30, self.n_outputs),
+            nn.Softmax(dim=-1))
+    
+    def predict(self, state):
+        action_probs = self.network(torch.FloatTensor(state))
+        return action_probs
 
-def choose_action(state, q_table, action_space, epsilon):
-    if np.random.random_sample() < epsilon: # 有 ε 的機率會選擇隨機 action
-        return action_space.sample() 
-    else: # 其他時間根據現有 policy 選擇 action，也就是在 Q table 裡目前 state 中，選擇擁有最大 Q value 的 action
-        return np.argmax(q_table[state]) 
-def get_state(observation, n_buckets, state_bounds):
-    state = [0] * len(observation) 
-    for i, s in enumerate(observation): # 每個 feature 有不同的分配
-        l, u = state_bounds[i][0], state_bounds[i][1] # 每個 feature 值的範圍上下限
-        if s <= l: # 低於下限，分配為 0
-            state[i] = 0
-        elif s >= u: # 高於上限，分配為最大值
-            state[i] = n_buckets[i] - 1
-        else: # 範圍內，依比例分配
-            state[i] = int(((s - l) / (u - l)) * n_buckets[i])
+def discount_rewards(rewards, gamma=0.99):
+    r = np.array([gamma**i * rewards[i] 
+        for i in range(len(rewards))])
+    # Reverse the array direction for cumsum and then
+    # revert back to the original order
+    r = r[::-1].cumsum()[::-1]
+    return r - r.mean()
 
-    return tuple(state)
+def reinforce(env, policy_estimator, num_episodes=7000,
+              batch_size=128, gamma=0.99):
+    # Set up lists to hold results
+    total_rewards = []
+    batch_rewards = []
+    batch_actions = []
+    batch_states = []
+    batch_counter = 1
+    
+    # Define optimizer
+    optimizer = optim.Adam(policy_estimator.network.parameters(), 
+                           lr=0.01)
+    # loss_function = nn.CrossEntropyLoss()
+    action_space = np.arange(env.action_space.n)
+    ep = 0
+    while ep < num_episodes:
+        s_0 = env.reset()
+        states = []
+        rewards = []
+        actions = []
+        done = False
+        # if ep == num_episodes -1:
+        #     env.render()
+        count = 0
+        while done == False:
+            # if count > 15000:
+            #     break
+            # Get actions and convert to numpy array
+            action_probs = policy_estimator.predict(
+                s_0).detach().numpy()
+            action = np.random.choice(action_space, 
+                p=action_probs)
+            s_1, r, done, _ = env.step(action)
+            if done:
+                r = 0
+            else:
+                r = count * abs(math.sin(s_1[0]))
+            # r =  count
+            states.append(s_0)
+            rewards.append(r)
+            actions.append([action])
+            s_0 = s_1
+            count += 1
+            if ep > 1500:
+                env.render()
+            # If done, batch data
+            if done:
+                r = r - 10
+                batch_rewards.extend(discount_rewards(
+                    rewards, gamma))
+                batch_states.extend(states)
+                batch_actions.extend(actions)
+                batch_counter += 1
+                total_rewards.append(sum(rewards))
+                
+                # If batch is complete, update network
+                if batch_counter == batch_size:
+                    optimizer.zero_grad()
+                    state_tensor = torch.FloatTensor(batch_states)
+                    reward_tensor = torch.FloatTensor(
+                        batch_rewards)
+                    # Actions are used as indices, must be 
+                    # LongTensor
+                    action_tensor = torch.LongTensor(
+                       batch_actions)
+                    
+                    # Calculate loss
+                    logprob = torch.log(
+                        policy_estimator.predict(state_tensor))
+                    selected_logprobs = reward_tensor * torch.gather(logprob, 1, action_tensor).squeeze()
+                    loss = -selected_logprobs.mean()
+                    
+                    # Calculate gradients
+                    loss.backward()
+                    # Apply gradients
+                    optimizer.step()
+                    
+                    batch_rewards = []
+                    batch_actions = []
+                    batch_states = []
+                    batch_counter = 1
+                    
+                avg_rewards = np.mean(total_rewards[-100:])
+                
+                # Print running average
+                print("\rEp: {} Average of last 100:" +   
+                     "{:.2f}".format(
+                      avg_rewards) + "  epoch:"+str(ep), end="")
+                ep += 1
+                
+    return total_rewards
+
 env = gym.make('BongoBoard-v0')
+policy_est = policy_estimator(env)
+rewards = reinforce(env, policy_est)
+window = 10
+smoothed_rewards = [np.mean(rewards[i-window:i+1]) if i > window 
+                    else np.mean(rewards[:i+1]) for i in range(len(rewards))]
 
-# 準備 Q table
-## Environment 中各個 feature 的 bucket 分配數量
-## 1 代表任何值皆表同一 state，也就是這個 feature 其實不重要
-n_buckets = (6, 8, 6, 8)
-
-## Action 數量 
-n_actions = env.action_space.n
-
-## State 範圍 
-state_bounds = list(zip(env.observation_space.low, env.observation_space.high))
-state_bounds[1] = [-0.5, 0.5]
-state_bounds[3] = [-math.radians(50), math.radians(50)]
-
-## Q table，每個 state-action pair 存一值 
-q_table = np.zeros(n_buckets + (n_actions,))
-
-# 一些學習過程中的參數
-get_epsilon = lambda i: max(0.01, min(1, 1.0 - math.log10((i+1)/25)))  # epsilon-greedy; 隨時間遞減
-get_lr = lambda i: max(0.01, min(0.5, 1.0 - math.log10((i+1)/25))) # learning rate; 隨時間遞減 
-gamma = 0.99 # reward discount factor
-
-# Q-learning
-for i_episode in range(1000):
-    epsilon = get_epsilon(i_episode)
-    lr = get_lr(i_episode)
-
-    observation = env.reset()
-    rewards = 0
-    state = get_state(observation, n_buckets, state_bounds) # 將連續值轉成離散 
-    for t in range(250):
-        env.render()
-
-        action = choose_action(state, q_table, env.action_space, epsilon)
-        observation, reward, done, info = env.step(action)
-
-        rewards += reward
-        next_state = get_state(observation, n_buckets, state_bounds)
-
-        # 更新 Q table
-        q_next_max = np.amax(q_table[next_state]) # 進入下一個 state 後，預期得到最大總 reward
-        q_table[state + (action,)] += lr * (reward + gamma * q_next_max - q_table[state + (action,)]) # 就是那個公式
-
-        # 前進下一 state 
-        state = next_state
-
-        if done:
-            print('Episode finished after {} timesteps, total rewards {}'.format(t+1, rewards))
-            break
-
-env.close()
+plt.figure(figsize=(12,8))
+plt.plot(rewards)
+plt.plot(smoothed_rewards)
+plt.ylabel('Total Rewards')
+plt.xlabel('Episodes')
+plt.show()

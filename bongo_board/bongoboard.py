@@ -9,7 +9,7 @@ import random
 class bongo_board(gym.Env):
     metadata = {
         'render.modes': ['human', 'rgb_array'],
-        'video.frames_per_second': 50
+        'video.frames_per_second': 100
     }
 
     def __init__(self):
@@ -18,24 +18,15 @@ class bongo_board(gym.Env):
         self.base_ball_radian, self.board_lenth, self.board_width = 25, 125, 4
         self.node_radian = 4
         self.pendulum_pole_lenth, self.pendulum_pole_width, self.pendulum_mass = 110, 4, 1
-        self.gravity = 9.8
-        self.masscart = 0
-        self.masspole = 5
-        self.total_mass = (self.masspole + self.masscart)
-        self.length = 110  # actually half the pole's length
-        self.polemass_length = (self.masspole * self.length)
+        self.gravity = 0.98 * 0
         self.force_mag = 1.0
-        self.tau = 0.02  # seconds between state updates
+        self.tau = 0.01  # seconds between state updates
         self.thetalimit()
-        # Angle at which to fail the episode
-        self.theta_threshold_radians = 3000
-        self.x_threshold = self.max_theta
-
         # Angle limit set to 2 * theta_threshold_radians so failing observation
         # is still within bounds.
-        high = np.array([self.x_threshold,
+        high = np.array([self.max_theta,
                          np.finfo(np.float32).max,
-                         self.theta_threshold_radians * 2,
+                         math.pi/2,
                          np.finfo(np.float32).max],
                         dtype=np.float32)
         self.action_space = spaces.Discrete(2)
@@ -56,49 +47,70 @@ class bongo_board(gym.Env):
     def step(self,action):
         err_msg = "%r (%s) invalid" % (action, type(action))
         assert self.action_space.contains(action), err_msg
-        x, x_dot, theta, theta_dot = self.state
-        force = 0.1 if action == 1 else -0.1
-        costheta = math.cos(theta)
-        sintheta = math.sin(theta)
-        temp = (force + self.polemass_length * theta_dot ** 2 * sintheta) / self.total_mass
-        thetaacc = (self.gravity * sintheta - costheta * temp) / (self.length * (4.0 / 3.0 - self.masspole * costheta ** 2 / self.total_mass))
-        xacc = temp - self.polemass_length * thetaacc * costheta / self.total_mass
-        x = x + self.tau * x_dot
-        x_dot = x_dot + self.tau * xacc
+        alpha, alpha_dot, theta, theta_dot = self.state
+        if action == 0:
+            force = 1
+        elif action == 1:
+            force = -1
+        
+        # alphacc = 1 * self.gravity * math.sin(alpha)
+        # thetaacc = ((1 * self.gravity * math.cos(alpha) * math.sin(alpha + theta) * \
+        #         (self.base_ball_radian/2)) )/((1 * (self.base_ball_radian/2)**2)/2)
+        alphacc = force 
+        thetaacc = (force) 
+        alpha = alpha + self.tau * alpha_dot
+        alpha_dot = alpha_dot + self.tau * alphacc
         theta = theta + self.tau * theta_dot
         theta_dot = theta_dot + self.tau * thetaacc
-        self.state = (x, x_dot, theta, theta_dot)
         
-        self.theta = x
-        self.alpha = x + math.pi/2
+        self.theta = theta
+        self.alpha = alpha + math.pi/2
         # self.alpha = theta + math.pi/2
-        done = False
-        if self.theta > self.max_theta:
-            self.theta = self.max_theta
-            self.alpha = self.theta + math.pi/2
-            done = True
-        elif self.theta < self.min_theta:
-            self.theta = self.min_theta
-            self.alpha = self.theta + math.pi/2
-            done = True
-
-        if not done:
-            reward = 1.
-        elif self.steps_beyond_done is None:
-            self.steps_beyond_done = 0
-            reward = 1
-        else:
-            if self.steps_beyond_done == 0:
-                logger.warn(
-                    "You are calling 'step()' even though this "
-                    "environment has already returned done = True. You "
-                    "should always call 'reset()' once you receive 'done = "
-                    "True' -- any further steps are undefined behavior."
-                )
-            self.steps_beyond_done += 1
-            reward = -10
+        
         self.y, self.x = (self.base_ball_radian/2)*math.cos(self.theta),\
             (self.base_ball_radian/2)*math.sin(self.theta)
+        # self.pendulum_coordinate_y, self.pendulum_coordinate_x = (self.pendulum_pole_lenth)*math.cos(self.alpha),\
+        #                                                         (self.pendulum_pole_lenth)*math.sin(self.alpha)
+        # print("max theta bool:",theta > self.max_theta)
+        # print("min theta bool:",theta < self.min_theta)
+        # print("touch plane:",150 - abs(self.pendulum_coordinate_y) < 141-self.node_radian)
+        # print(150 - abs(self.pendulum_coordinate_y), 141-self.node_radian)
+        done = bool(
+            theta < self.min_theta /1
+            or theta > self.max_theta /1
+            or alpha > math.pi/2
+            or alpha < - math.pi/2
+        )
+        self.state = (alpha, alpha_dot, theta, theta_dot)
+        reward = 0
+        
+        if theta < self.min_theta or theta > self.max_theta:
+            reward = -10
+        elif alpha > math.pi/4 or alpha < - math.pi/4:
+            reward = -10
+        else:
+            r1 = 1 - abs(alpha)
+            r2 = 1 - abs(self.x)
+            reward = r1 + r2
+        # if not done:
+        #     if abs(self.x) <= 1:
+        #         reward = 1
+        #     else:
+        #         reward = 0
+        # # elif self.steps_beyond_done is None:
+        # #     # Pole just fell!
+        # #     self.steps_beyond_done = 0
+        # #     reward = 1.
+        # else:
+        #     # if self.steps_beyond_done == 0:
+        #     #     logger.warn(
+        #     #         "You are calling 'step()' even though this "
+        #     #         "environment has already returned done = True. You "
+        #     #         "should always call 'reset()' once you receive 'done = "
+        #     #         "True' -- any further steps are undefined behavior."
+        #     #     )
+        #     # self.steps_beyond_done += 1
+        #     reward = 0
         return np.array(self.state), reward, done, {}
     def thetalimit(self):
         _theta = math.atan((self.base_ball_radian/2)/(self.board_lenth/2))
@@ -166,7 +178,7 @@ class bongo_board(gym.Env):
             self.viewer.close()
             self.viewer = None
     def reset(self):
-        self.state = self.np_random.uniform(low=-0.05, high=0.05, size=(4,))
+        self.state = self.np_random.uniform(low=-0.1, high=0.1, size=(4,))
         self.steps_beyond_done = None
         return np.array(self.state)
 

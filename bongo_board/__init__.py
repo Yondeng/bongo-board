@@ -7,5 +7,6 @@ register(
 
 register(
     id='pole_kinetic-v0',
-    entry_point='bongo_board.pole:long_pole'
+    entry_point='bongo_board.pole:long_pole',
+    reward_threshold=475.0,
 )
