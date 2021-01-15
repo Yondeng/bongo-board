@@ -13,14 +13,14 @@ n_actions = env.action_space.n
 n_states = env.observation_space.shape[0]
 
 # Hyper parameters
-n_hidden = 50
+n_hidden = 100
 batch_size = 128
 lr = 0.0001                 
 epsilon = 0.1             
 gamma = 0.9             
 target_replace_iter = 100 
-memory_capacity = 10000
-n_episodes = 7000
+memory_capacity = 4000
+n_episodes = 2000
 
 # Build DQN
 dqn = DQN(n_states, n_actions, n_hidden, batch_size, lr, epsilon, gamma, target_replace_iter, memory_capacity)
@@ -31,7 +31,7 @@ def main():
         rewards = 0
         state = env.reset()
         while True:
-            if i_episode > 5000:
+            if i_episode > 1500:
                 env.render()
             action = dqn.choose_action(state)
             next_state, reward, done, info = env.step(action)
@@ -49,8 +49,8 @@ def main():
                 dqn.learn()
             state = next_state
             if done:
-                print('\rEpisode finished after {}\
-                    timesteps, total rewards {} Epoch {}'.format(t+1, rewards, i_episode), end="")
+                print('Episode finished after {}\
+                    timesteps, total rewards {} Epoch {}'.format(t+1, rewards, i_episode))
                 rewardsArr.append(rewards)
                 break
             t += 1

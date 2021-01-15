@@ -53,11 +53,11 @@ class bongo_board(gym.Env):
         elif action == 1:
             force = -1
         
-        alphacc = 1 * self.gravity * math.sin(alpha)
-        thetaacc = ((1 * self.gravity * math.cos(alpha) * math.sin(alpha + theta) * \
-                (self.base_ball_radian/2)) )/((1 * (self.base_ball_radian/2)**2)/2)
-        alphacc = force + alphacc
-        thetaacc = (force) + thetaacc
+        # alphacc = 1 * self.gravity * math.sin(alpha)
+        # thetaacc = ((1 * self.gravity * math.cos(alpha) * math.sin(alpha + theta) * \
+        #         (self.base_ball_radian/2)) )/((1 * (self.base_ball_radian/2)**2)/2)
+        alphacc = force# + alphacc
+        thetaacc = (force) #+ thetaacc
         alpha = alpha + self.tau * alpha_dot
         alpha_dot = alpha_dot + self.tau * alphacc
         theta = theta + self.tau * theta_dot
