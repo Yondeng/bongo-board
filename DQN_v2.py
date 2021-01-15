@@ -15,7 +15,7 @@ n_states = env.observation_space.shape[0]
 # Hyper parameters
 n_hidden = 100
 batch_size = 128
-lr = 0.0001                 
+lr = 0.001                 
 epsilon = 0.1             
 gamma = 0.9             
 target_replace_iter = 100 
