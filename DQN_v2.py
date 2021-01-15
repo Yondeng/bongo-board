@@ -20,7 +20,7 @@ epsilon = 0.1
 gamma = 0.9             
 target_replace_iter = 100 
 memory_capacity = 4000
-n_episodes = 2000
+n_episodes = 500
 
 # Build DQN
 dqn = DQN(n_states, n_actions, n_hidden, batch_size, lr, epsilon, gamma, target_replace_iter, memory_capacity)
@@ -31,7 +31,7 @@ def main():
         rewards = 0
         state = env.reset()
         while True:
-            if i_episode > 1500:
+            if i_episode > 300:
                 env.render()
             action = dqn.choose_action(state)
             next_state, reward, done, info = env.step(action)

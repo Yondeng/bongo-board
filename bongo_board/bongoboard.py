@@ -178,7 +178,7 @@ class bongo_board(gym.Env):
             self.viewer.close()
             self.viewer = None
     def reset(self):
-        self.state = self.np_random.uniform(low=-0.1, high=0.1, size=(4,))
+        self.state = self.np_random.uniform(low=-0.05, high=0.05, size=(4,))
         self.steps_beyond_done = None
         return np.array(self.state)
 
