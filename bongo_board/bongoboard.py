@@ -18,7 +18,7 @@ class bongo_board(gym.Env):
         self.base_ball_radian, self.board_lenth, self.board_width = 25, 125, 4
         self.node_radian = 4
         self.pendulum_pole_lenth, self.pendulum_pole_width, self.pendulum_mass = 110, 4, 1
-        self.gravity = 0.98 * 0
+        self.gravity = 0.98 * 10 /6
         self.force_mag = 1.0
         self.tau = 0.01  # seconds between state updates
         self.thetalimit()
@@ -53,11 +53,11 @@ class bongo_board(gym.Env):
         elif action == 1:
             force = -1
         
-        # alphacc = 1 * self.gravity * math.sin(alpha)
-        # thetaacc = ((1 * self.gravity * math.cos(alpha) * math.sin(alpha + theta) * \
-        #         (self.base_ball_radian/2)) )/((1 * (self.base_ball_radian/2)**2)/2)
-        alphacc = force 
-        thetaacc = (force) 
+        alphacc = 1 * self.gravity * math.sin(alpha)
+        thetaacc = ((1 * self.gravity * math.cos(alpha) * math.sin(alpha + theta) * \
+                (self.base_ball_radian/2)) )/((1 * (self.base_ball_radian/2)**2)/2)
+        alphacc = force + alphacc
+        thetaacc = (force) + thetaacc
         alpha = alpha + self.tau * alpha_dot
         alpha_dot = alpha_dot + self.tau * alphacc
         theta = theta + self.tau * theta_dot
